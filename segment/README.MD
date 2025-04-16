@@ -27,12 +27,16 @@ output1的维度是[BatchSize,32, dim2, dim3](其中dim2=InputHeight/4, dim3=Inp
 | l | 27.6 | 142.2 | 207.16	| 138.00 | 118.00 |	256.00 | 12.08 | 1.98 |	10.11 |
 | x | 62.1 | 319 | 207.16 |	306.00 | 178.00 | 484.00 | 19.88 | 1.98 | 17.91 |
 
-### 不同平台推理数据
-| platform | PreProcess | Inference | PostProcess | single PostProcess|
-| --- | --- | --- | --- |
-|trt| - | - | - |
-|onnx-cuda| - | - | - |
-|onnx-trt| - | - | - |
-|C#-cuda| - | - | - |
-|C#-trt| - | - | - |
-|python| - | - | - |
+### 不同平台推理数据  
+使用m模型进行推理，不同阶段的耗时，单位ms
+其中后处理分为两部分，第一部分是select results, 从output0中筛选结果，第二部分是处理mask获取检测结果。第二部分统计单次处理的时间。
+| platform | PreProcess | Inference | selectValue | single PostProcess |
+| --- | --- | --- | --- | --- |
+| trt | 2.67 | 10.12 | 0.73 | 3.55 |
+| onnx-cuda | 2.63 | 22.99 | 2.35 | 4.22 |
+| onnx-trt| 2.63 | 10.93 | 2.35 | 4.14 |
+| C#-cuda | 2.61 | 23.82 | 6.33 |  6.28 |
+| C#-trt | 2.67 | 13.68 | 7.29 | 6.68 |
+| python | 2.94 | 9.18 | 0.47 | 0.71 |
+
+
