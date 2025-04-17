@@ -101,6 +101,7 @@ namespace inference_trt_space
 	private:
 		void preProcess(const cv::Mat& inputMat, IONode& inNode);
 		void postProcess(const IONode& outNode0, const IONode& outNode1, std::vector<TrtSegResult>& segResults);
+		void postProcessMask(const IONode& outNode0, const IONode& outNode1, std::vector<TrtSegResult>& segResults);
 		void analysisOnnxData(const std::string& modelPath, bool saveEngineData=true);
 
 		void warnUp();

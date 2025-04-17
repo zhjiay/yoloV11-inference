@@ -16,6 +16,7 @@ yolo-segment的分割结果分为两部分，output0,output1。假设Dims为[Bat
 - 后32为 mask系数，与output1做矩阵乘法得到mask。  
 
 output1的维度是[BatchSize,32, dim2, dim3](其中dim2=InputHeight/4, dim3=InputHeight/4)。将output1转换为 [32, dim2*dim3]的Mat(BatchSize张Mat)。使用output0得到的mask[1,32]与 output1Mask[32, dim2*dim3]进行矩阵乘法，得到ResultMask[1,dim2*dim3]。再将ResultMask reshape为[dim2,dim3]的Mat。进行Sigmoid变化。将Mat概率转换到[0-1]之间。然后resize到输入图像尺寸[ImageHeight,ImageWidth]。进行二极化，然后需要使用output0获取的bbox，筛选轮廓区域，只有在bbox内且最大的轮廓才是目标轮廓,如果不筛选会存在其它区域的干扰轮廓,至此,获取到最终推理结果.
+> 更新后处理。bbox内可能存在多个检出实例，因此之前的后处理可能存在漏检问题。使用bbox筛选目标区域的mask，然后同类型的mask进行叠加。最终使用二极化筛选目标轮廓。更新至 tensorRT 推理中 postProcessMask方法。
 
 ### 模型数据
 基于tensorRT 推理的模型数据指标
