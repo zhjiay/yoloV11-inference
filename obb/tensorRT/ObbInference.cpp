@@ -8,7 +8,7 @@ ObbInference::ObbInference(int numCls)
 
 ObbInference::~ObbInference()
 {
-
+	this->release();
 }
 
 bool ObbInference::load(std::string modelPath)
