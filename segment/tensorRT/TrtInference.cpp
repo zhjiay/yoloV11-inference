@@ -255,6 +255,92 @@ void inference_trt_space::TrtInference::postProcess(const IONode& outNode0, cons
 	}
 }
 
+void inference_trt_space::TrtInference::postProcessMask(const IONode& outNode0, const IONode& outNode1, std::vector<TrtSegResult>& segResults)
+{
+	auto shape0 = outNode0.dims; //[batch, boxsSize+numClass+32(mask number), totalResultCount]
+	auto shape1 = outNode1.dims; //[batch, mask_number, _inputHeight/4, _inputWidht/4];
+	const int numClass = _labelNames.size();
+	const int maskDataLen = shape0.d[1] - 4 - numClass;
+	assert(maskDataLen == 32);
+
+	cv::Mat maskProto(maskDataLen, shape1.d[2] * shape1.d[3], CV_32FC1, outNode1.hPtr); // output1结果设置到 Mat上
+	cv::Mat output0Mat(shape0.d[1], shape0.d[2], CV_32FC1, outNode0.hPtr); //output0 结果设置到 Mat上
+	output0Mat = output0Mat.t();
+
+	std::vector<cv::Rect> bboxs;
+	std::vector<int> classIds;
+	std::vector<float> confidences;
+	std::vector<cv::Mat> masks;
+
+	for (int i = 0; i < output0Mat.rows; i++)
+	{
+		float* rowPtr = output0Mat.ptr<float>(i);
+		int classId = std::max_element(rowPtr + 4, rowPtr + 4 + numClass) - (rowPtr + 4);
+		float confidence = rowPtr[4 + classId];
+		if (confidence < _confidence_threshold) continue;
+
+		float x_center = rowPtr[0];
+		float y_center = rowPtr[1];
+		float width = rowPtr[2];
+		float height = rowPtr[3];
+
+		int x1 = static_cast<int>(clamp(x_center - width * 0.5, 0, _inputWidth));
+		int y1 = static_cast<int>(clamp(y_center - height * 0.5, 0, _inputHeight));
+		int x2 = static_cast<int>(clamp(x_center + width * 0.5, 0, _inputWidth));
+		int y2 = static_cast<int>(clamp(y_center + height * 0.5, 0, _inputHeight));
+		bboxs.emplace_back(x1, y1, std::max(x2 - x1, 0), std::max(y2 - y1, 0));
+		classIds.emplace_back(classId);
+		confidences.emplace_back(confidence);
+		cv::Mat maskMat(1, maskDataLen, CV_32FC1, (rowPtr + 4 + numClass));
+		masks.emplace_back(maskMat);
+	}
+	std::vector<int> indices;
+
+	cv::dnn::NMSBoxes(bboxs, confidences, _nms_socre_threshold, _nms_iou_threshold, indices, 0.5);
+
+	std::vector<cv::Mat> labelMasks;
+	for (int i = 0; i < numClass; i++)
+	{
+		labelMasks.emplace_back(cv::Mat::zeros(_inputHeight, _inputWidth, CV_32FC1));
+	}
+	for (int idx : indices)
+	{
+		cv::Mat mask = (masks[idx] * maskProto).t();
+		mask = mask.reshape(1, shape1.d[2]);
+		cv::exp(-mask, mask);
+		mask = 1.0 / (1.0 + mask);
+		cv::resize(mask, mask, cv::Size(_inputWidth, _inputHeight), 0, 0);
+
+		//使用bbox 提取目标区域的掩膜
+		cv::Mat rectMask = cv::Mat::zeros(mask.size(), mask.type());
+		rectMask(bboxs[idx]) = 1.0f;
+		mask = mask.mul(rectMask);
+
+		labelMasks[classIds[idx]] = labelMasks[classIds[idx]] + mask;
+	}
+	segResults.clear();
+	for (int i=0;i<labelMasks.size();i++)
+	{
+		cv::Mat mask_binary;
+		cv::threshold(labelMasks[i], mask_binary, _mask_threshold, 1.0, cv::THRESH_BINARY);
+		mask_binary.convertTo(mask_binary, CV_8UC1, 255);
+
+		std::vector<std::vector<cv::Point>> contours;
+		cv::findContours(mask_binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+		for (auto cnt : contours)
+		{
+			TrtSegResult seg;
+			seg.label = i;
+			seg.labelName = _labelNames[seg.label];
+			seg.confidence = 1.0;
+			seg.box = cv::boundingRect(cnt);
+			seg.contour = cnt;
+			segResults.emplace_back(seg);
+		}
+	}
+}
+
 void inference_trt_space::TrtInference::analysisOnnxData(const std::string& modelPath, bool saveEngineData)
 {
 	std::vector<char> onnxData;
