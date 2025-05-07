@@ -41,3 +41,25 @@ output1的维度是[BatchSize,32, dim2, dim3](其中dim2=InputHeight/4, dim3=Inp
 | python | 2.94 | 9.18 | 0.47 | 0.71 |
 
 
+### 训练过程和数据集格式
+``` python
+    modelName="segModel"
+    model = YOLO("_path_to/yolo11m-seg.pt")  # load a pretrained model (recommended for training)
+    results = model.train(data="dataset.yaml", epochs=100, imgsz=800, batch=12, device="cuda:0", name=modelName)    # Train the model
+    model.export(format="onnx")
+```
+数据目录:  
+train:  
+---- |images  
+---- |labels   
+val:  
+---- |images  
+---- |labels  
+
+dataset.yaml:  
+``` xml
+train:  pathto/train/images   # 训练集图像路径
+val: pathto/val/images   # 验证集图像路径
+nc: 4                      # 类别数量
+names: ['label0', 'label1', 'label2', 'label3']  # 类别名称
+```

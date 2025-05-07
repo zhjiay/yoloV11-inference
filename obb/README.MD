@@ -14,3 +14,27 @@ x_center, y_center, width, height,均为基于原始图像大小的维度。之�
 | model | params(M) | FLOPS(B) | runtime(MB) | engine(MB) | context(MB) | used GPU Mem (MB) | preProcess(ms) | Inference(ms) | PostProcess |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | m | 20.9 | 183.5 | 207.16 | 100.00 | 294.00 | 394.00 | 4.22 | 17.36 | - |
+
+
+### 训练过程和数据集格式
+``` python
+    modelName="TestOBB_Model"
+    model = YOLO("___Path_To_/yolo11m-obb.pt")  # load a pretrained model (recommended for training)
+    results = model.train(data="dataset.yaml", epochs=200, imgsz=1280, batch=2, device="cuda:0", name=modelName) 
+    model.export(format="onnx")
+```
+数据目录:  
+images:  
+---- |train  
+---- |val  
+labels:  
+---- |train  
+---- |val  
+
+dataset.yaml:  
+``` xml
+train:  pathto/images/train   # 训练集图像路径
+val: pathto/images/val   # 验证集图像路径
+nc: 4                      # 类别数量
+names: ['label0', 'label1', 'label2', 'label3']  # 类别名称
+```
